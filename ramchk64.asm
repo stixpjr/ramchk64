@@ -1,16 +1,21 @@
-* ramchk64 20221220
+* ramchk64 20221228
 * stix@stix.id.au
+* - assumes a 64k machine for now
+* - give ourselves 4KiB for growth.
+* - low copy at $0000, high copy at $7000
+* -- $0000 code
+* -- $0e00 stack
+* -- $0e00 video RAM
+* -- $1000 end
 
-* assumes a 64k machine for now
-
-	org	$7800
+	org	$7000
 zb	jmp	start
 	fdb	ze-zb
 * disable interrupts
 start	orcc	#$50
 * hide ROM
 	clr	romset
-	jmp	p30
+	jmp	phigh
 * copy ourselves to page 0
 loop	ldx	#zb
 	ldy	#0
@@ -19,22 +24,22 @@ copy1	ldd	,x++
 	cmpx	#ze
 	bls	copy1
 * jump into copy
-	jmp	p0-zb
-* move video RAM to page1, @$200
-p0	clr	f0set+0
-	clr	f0clr+2
-	*clr	f0clr+4
-	*clr	f0clr+6
-	*clr	f0clr+8
-	*clr	f0clr+10
-	*clr	f0clr+12
-	ldd	#$200
+	jmp	plow-zb
+* move video RAM to page7, @$0e00
+plow	clr	f0set+0
+	clr	f0set+2
+	clr	f0set+4
+	clr	f0clr+6
+	clr	f0clr+8
+	clr	f0clr+10
+	clr	f0clr+12
+	ldd	#$0e00
 	std	vidram,pcr
 * set up stack
-	lds	#$1ff
+	lds	#$0e00
 	lbsr	prtscr
-* check blocks from $0400-$fe00
-	lda	#$04
+* check blocks from $1000-$fe00
+	lda	#$10
 loop1	bsr	chk
 	cmpa	#$ff
 	bne	loop1
@@ -47,24 +52,24 @@ copy2	ldd	,x++
 	cmpy	#ze
 	bls	copy2
 * jump into copy
-	jmp	p30
-* move video RAM to page2, @$400
-p30	clr	f0clr+0
+	jmp	phigh
+* move video RAM to page $3f, @$7e00
+phigh	clr	f0set+0
 	clr	f0set+2
-	*clr	f0clr+4
-	*clr	f0clr+6
-	*clr	f0clr+8
-	*clr	f0clr+10
-	*clr	f0clr+12
-	ldd	#$400
+	clr	f0set+4
+	clr	f0set+6
+	clr	f0set+8
+	clr	f0set+10
+	clr	f0clr+12
+	ldd	#$7e00
 	std	vidram,pcr
 * set up stack
-	lds	#zb+$1ff
+	lds	#$7e00
 	lbsr	prtscr
-* check blocks from $0000-$0300
+* check blocks from $0000-$0f00
 	clra
 loop2	bsr	chk
-	cmpa	#$04
+	cmpa	#$10
 	bne	loop2
 	lbra	loop
 
