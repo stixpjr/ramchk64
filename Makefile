@@ -3,6 +3,9 @@ all:	ramchk64.dsk
 clean:
 	-rm -f ramchk64.bin ramchk64.dsk
 
+test:	ramchk64.bin
+	xroar -machine coco -load ramchk64.bin
+
 ramchk64.bin:	ramchk64.asm
 	lwasm -9 -b -o $@ ramchk64.asm
 
