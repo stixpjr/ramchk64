@@ -81,18 +81,36 @@ loop2	bsr	chk
 chk	ldy	#$69
 * prints page # from a
 	lbsr	prthex
-* patterns from $01-$ff
-	clrb
+* patterns from the list
+	ldu	#patn
 * print pattern # in b
-chk1	ldy	#$89
+chk1	ldb	,u+
+	ldy	#$89
 	exg	a,b
 	bsr	prthex
 	exg	a,b
 	bsr	chkblk
-	incb
-	bne	chk1
+	cmpu	#patne
+	bls	chk1
 	inca
 	rts
+
+* patterns used for checks
+patn	fcb	$00
+	fcb	$ff
+	fcb	$0f
+	fcb	$f0
+	fcb	$33
+	fcb	$cc
+	fcb	$55
+	fcb	$aa
+	fcb	$81
+	fcb	$c3
+	fcb	$e7
+	fcb	$7e
+	fcb	$3c
+	fcb	$18
+patne	equ	*
 
 * chkblk
 * inputs:
@@ -118,7 +136,7 @@ chkbl1	sta	,x+
 * verify loop
 chkbl2	cmpa	,x+
 	beq	chkbl3
-	bsr	error
+	lbsr	error
 chkbl3	leay	-1,y
 	bne	chkbl2
 	lda	,s
@@ -140,20 +158,11 @@ chkbl4	sta	,x+
 * verify loop
 chkbl5	cmpa	,x+
 	beq	chkbl6
-	bsr	error
+	lbsr	error
 chkbl6	coma
 	leay	-1,y
 	bne	chkbl5
 	puls	a,b,pc
-
-* error
-* inc error counter, and update on screen
-error	inc	errors,pcr
-	pshs	a,b,x,y
-	lda	errors,pcr
-	ldy	#$c9
-	bsr	prthex
-	puls	a,b,x,y,pc
 
 * prthex
 * inputs:
@@ -235,13 +244,22 @@ cls1	std	,x++
 	bne	cls1
 	rts
 
+* error
+* inc error counter, and update on screen
+error	inc	errors,pcr
+	pshs	a,b,x,y
+	lda	errors,pcr
+	ldy	#$c9
+	lbsr	prthex
+	puls	a,b,x,y,pc
+
 * vars
 vidram	fdb	0
 cycles	fcb	0
 errors	fcb	0
 
 * strings
-strttl	fcc	"RAMCHK64 20221220"
+strttl	fcc	"RAMCHK64 20221228"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
