@@ -25,7 +25,7 @@ copy1	ldd	,x++
 	bls	copy1
 * jump into copy
 	jmp	plow-zb
-* move video RAM to page7, @$0e00
+* move video RAM to page $7, @$0e00
 plow	clr	f0set+0
 	clr	f0set+2
 	clr	f0set+4
@@ -82,7 +82,7 @@ chk	ldy	#$69
 * prints page # from a
 	lbsr	prthex
 * patterns from the list
-	ldu	#patn
+	leau	patn,pcr
 * print pattern # in b
 chk1	ldb	,u+
 	ldy	#$89
@@ -90,27 +90,10 @@ chk1	ldb	,u+
 	bsr	prthex
 	exg	a,b
 	bsr	chkblk
-	cmpu	#patne
-	bls	chk1
+	cmpb	#$01
+	bne	chk1
 	inca
 	rts
-
-* patterns used for checks
-patn	fcb	$00
-	fcb	$ff
-	fcb	$0f
-	fcb	$f0
-	fcb	$33
-	fcb	$cc
-	fcb	$55
-	fcb	$aa
-	fcb	$81
-	fcb	$c3
-	fcb	$e7
-	fcb	$7e
-	fcb	$3c
-	fcb	$18
-patne	equ	*
 
 * chkblk
 * inputs:
@@ -257,6 +240,23 @@ error	inc	errors,pcr
 vidram	fdb	0
 cycles	fcb	0
 errors	fcb	0
+
+* patterns used for checks
+patn	fcb	$00
+	fcb	$ff
+	fcb	$0f
+	fcb	$f0
+	fcb	$33
+	fcb	$cc
+	fcb	$55
+	fcb	$aa
+	fcb	$81
+	fcb	$c3
+	fcb	$e7
+	fcb	$7e
+	fcb	$3c
+	fcb	$18
+	fcb	$01	* end of patns
 
 * strings
 strttl	fcc	"RAMCHK64 20221228"
