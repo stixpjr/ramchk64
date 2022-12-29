@@ -1,4 +1,4 @@
-* ramchk64 20221228
+* ramchk64 20221229
 * stix@stix.id.au
 * - give ourselves 4KiB for growth.
 * - low copy at $0000, high copy at $7000
@@ -277,7 +277,7 @@ patn	fcb	$00
 	fcb	$01	* end of patns
 
 * strings
-strttl	fcc	"RAMCHK64 20221228"
+strttl	fcc	"RAMCHK64 20221229"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
