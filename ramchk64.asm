@@ -1,6 +1,5 @@
 * ramchk64 20221228
 * stix@stix.id.au
-* - assumes a 64k machine for now
 * - give ourselves 4KiB for growth.
 * - low copy at $0000, high copy at $7000
 * -- $0000 code
@@ -15,6 +14,11 @@ zb	jmp	start
 start	orcc	#$50
 * hide ROM
 	clr	romset
+* detect 32k/64k
+	lda	#$80
+	leax	ram64k,pcr
+	sta	$8000,x
+* jump to the low ram check
 	jmp	phigh
 * copy ourselves to page 0
 loop	ldx	#zb
@@ -38,10 +42,12 @@ plow	clr	f0set+0
 * set up stack
 	lds	#$0e00
 	lbsr	prtscr
-* check blocks from $1000-$fe00
+* check blocks:
+* from $1000-$fe00 for 64k
+* from $1000-$8000 for 32k
 	lda	#$10
 loop1	bsr	chk
-	cmpa	#$ff
+	cmpa	ram64k,pcr
 	bne	loop1
 	inc	cycles,pcr
 * copy ourselves back to $ORG
@@ -78,14 +84,14 @@ loop2	bsr	chk
 * chk - check a page with all patterns
 * inputs:
 * a: 256 byte block number
-chk	ldy	#$69
+chk	ldy	#$89
 * prints page # from a
 	lbsr	prthex
 * patterns from the list
 	leau	patn,pcr
 * print pattern # in b
 chk1	ldb	,u+
-	ldy	#$89
+	ldy	#$a9
 	exg	a,b
 	bsr	prthex
 	exg	a,b
@@ -174,7 +180,7 @@ prthe2	sta	,y+
 * prtscr
 * print text headers, cycle & error count
 * clobbers: a,b,x,y
-prtscr	bsr	cls
+prtscr	lbsr	cls
 	ldy	#0
 	leax	strttl,pcr
 	bsr	prtstr
@@ -182,23 +188,34 @@ prtscr	bsr	cls
 	leax	straut,pcr
 	bsr	prtstr
 	ldy	#$60
+	leax	strmem,pcr
+	bsr	prtstr
+	ldy	#$69
+	lda	ram64k,pcr
+	bita	#1
+	bne	prtsc1
+	leax	str32k,pcr
+	bra	prtsc2
+prtsc1	leax	str64k,pcr
+prtsc2	bsr	prtstr
+	ldy	#$80
 	leax	strpg,pcr
 	bsr	prtstr
-	ldy	#$80
+	ldy	#$a0
 	leax	strpat,pcr
 	bsr	prtstr
-	ldy	#$a0
+	ldy	#$c0
 	leax	strcyc,pcr
 	bsr	prtstr
-	ldy	#$a9
+	ldy	#$c9
 	lda	cycles,pcr
-	bsr	prthex
-	ldy	#$c0
+	lbsr	prthex
+	ldy	#$e0
 	leax	strerr,pcr
 	bsr	prtstr
-	ldy	#$c9
+	ldy	#$e9
 	lda	errors,pcr
-	bsr	prthex
+	lbsr	prthex
 	rts
 
 * prtstr - print ascii string
@@ -232,12 +249,13 @@ cls1	std	,x++
 error	inc	errors,pcr
 	pshs	a,b,x,y
 	lda	errors,pcr
-	ldy	#$c9
+	ldy	#$e9
 	lbsr	prthex
 	puls	a,b,x,y,pc
 
 * vars
 vidram	fdb	0
+ram64k	fcb	$ff
 cycles	fcb	0
 errors	fcb	0
 
@@ -263,6 +281,8 @@ strttl	fcc	"RAMCHK64 20221228"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
+strmem	fcc	"RAM:"
+	fcb	0
 strpg	fcc	"PAGE:"
 	fcb	0
 strpat	fcc	"PATTERN:"
@@ -270,6 +290,10 @@ strpat	fcc	"PATTERN:"
 strcyc	fcc	"CYCLES:"
 	fcb	0
 strerr	fcc	"ERRORS:"
+	fcb	0
+str32k	fcc	"32K"
+	fcb	0
+str64k	fcc	"64K"
 	fcb	0
 
 * equates
