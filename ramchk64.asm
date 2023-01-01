@@ -91,14 +91,15 @@ chk	ldy	#$89
 	leau	patn,pcr
 * print pattern # in b
 chk1	ldb	,u+
+	cmpb	#$01
+	beq	chk2
 	ldy	#$a9
 	exg	a,b
 	bsr	prthex
 	exg	a,b
 	bsr	chkblk
-	cmpb	#$01
-	bne	chk1
-	inca
+	bra	chk1
+chk2	inca
 	rts
 
 * chkblk
