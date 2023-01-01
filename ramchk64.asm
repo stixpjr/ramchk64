@@ -1,4 +1,4 @@
-* ramchk64 20221229
+* ramchk64 20230101
 * stix@stix.id.au
 * - give ourselves 4KiB for growth.
 * - low copy at $0000, high copy at $7000
@@ -18,6 +18,13 @@ start	orcc	#$50
 	lda	#$80
 	leax	ram64k,pcr
 	sta	$8000,x
+* clear error log
+	clra
+	ldb	#$60
+	leax	errlog,pcr
+logclr	sta	,x+
+	decb
+	bne	logclr
 * jump to the low ram check
 	jmp	phigh
 * copy ourselves to page 0
@@ -116,7 +123,20 @@ chkblk	pshs	a,b
 	ldy	#$100
 * fill loop
 chkbl1	sta	,x+
-	leay	-1,y
+*** corrupt every byte for testing?
+	if 0
+	com	-1,x
+	endif
+*** corrupt a bit for testing?
+	if 0
+	cmpx	#$1234
+	bne	nocorr
+	ldb	-1,x
+	eorb	#$40
+	stb	-1,x
+	clrb
+	endif
+nocorr	leay	-1,y
 	bne	chkbl1
 	ldx	#0
 	lda	,s
@@ -158,7 +178,7 @@ chkbl6	coma
 * inputs:
 * a: hex byte to print
 * y: screen offset
-prthex	pshs	a,b
+prthex	pshs	a,b,y
 	ldd	vidram,pcr
 	leay	d,y
 	lda	,s
@@ -170,7 +190,7 @@ prthex	pshs	a,b
 	lda	,s
 	anda	#$0f
 	bsr	prthe1
-	puls	a,b,pc
+	puls	a,b,y,pc
 prthe1	adda	#$70
 	cmpa	#$79
 	bls	prthe2
@@ -184,7 +204,7 @@ prthe2	sta	,y+
 prtscr	lbsr	cls
 	ldy	#0
 	leax	strttl,pcr
-	bsr	prtstr
+	lbsr	prtstr
 	ldy	#$20
 	leax	straut,pcr
 	bsr	prtstr
@@ -214,9 +234,10 @@ prtsc2	bsr	prtstr
 	ldy	#$e0
 	leax	strerr,pcr
 	bsr	prtstr
-	ldy	#$e9
-	lda	errors,pcr
-	lbsr	prthex
+	ldy	#$f0
+	leax	strbit,pcr
+	bsr	prtstr
+	bsr	prterr
 	rts
 
 * prtstr - print ascii string
@@ -246,19 +267,95 @@ cls1	std	,x++
 	rts
 
 * error
-* inc error counter, and update on screen
-error	inc	errors,pcr
-	pshs	a,b,x,y
-	lda	errors,pcr
+* - inc error counter
+* - update error bits
+* - update error log
+* - update on screen
+* inputs:
+* a: expected pattern
+* x: error addr + 1
+error	pshs	a,b,x,y,u
+	leax	-1,x
+* get the error bits
+	eora	,x
+	ora	errbit,pcr
+	sta	errbit,pcr
+* update error log
+* is address known?
+	lda	#$20
+	leay	errlog,pcr
+err1	cmpx	,y
+	beq	err3
+	leay	3,y
+	deca
+	bne	err1
+* not found, so shuffle error log down
+	lda	#$1f
+	leay	errlog,pcr
+	leay	$5d,y
+err2	ldx	-3,y
+	ldb	-1,y
+	stx	,y
+	stb	2,y
+	leay	-3,y
+	deca
+	bne	err2
+* store into error log
+err3	lda	,s
+	ldx	2,s
+	leax	-1,x
+	eora	,x
+	stx	,y
+	ora	2,y
+	sta	2,y
+* inc error counter
+	inc	errors,pcr
+	bsr	prterr
+	puls	a,b,x,y,u,pc
+
+* prterr - update errors on screen
+prterr	lda	errors,pcr
 	ldy	#$e9
 	lbsr	prthex
-	puls	a,b,x,y,pc
+	lda	errbit,pcr
+	ldy	#$f9
+	lbsr	prthex
+	ldb	#$20
+	stb	prterc,pcr
+	leax	errlog,pcr
+	ldy	#$100
+prter1	lda	,x+
+	lbsr	prthex
+	leay	2,y
+	lda	,x+
+	lbsr	prthex
+	leay	2,y
+	ldd	vidram,pcr
+	tfr	y,u
+	leau	d,u
+	lda	#':'+$40
+	sta	,u
+	leay	1,y
+	lda	,x+
+	lbsr	prthex
+	leay	3,y
+	dec	prterc,pcr
+	bne	prter1
+	rts
+prterc	fcb	0
 
 * vars
 vidram	fdb	0
 ram64k	fcb	$ff
 cycles	fcb	0
 errors	fcb	0
+errbit	fcb	0
+
+* error log
+* keep the last 32 error addresses
+* 2 byte address, 1 byte for error bits
+*   = 3 bytes per entry
+errlog	rmb	96
 
 * patterns used for checks
 patn	fcb	$00
@@ -278,7 +375,7 @@ patn	fcb	$00
 	fcb	$01	* end of patns
 
 * strings
-strttl	fcc	"RAMCHK64 20221229"
+strttl	fcc	"RAMCHK64 20230101"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
@@ -291,6 +388,8 @@ strpat	fcc	"PATTERN:"
 strcyc	fcc	"CYCLES:"
 	fcb	0
 strerr	fcc	"ERRORS:"
+	fcb	0
+strbit	fcc	"ERRBITS:"
 	fcb	0
 str32k	fcc	"32K"
 	fcb	0
