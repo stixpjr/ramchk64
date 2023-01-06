@@ -1,4 +1,4 @@
-* ramchk64 20230101
+* ramchk64 20230106
 * stix@stix.id.au
 * - give ourselves 4KiB for growth.
 * - low copy at $0000, high copy at $7000
@@ -15,16 +15,35 @@ start	orcc	#$50
 * hide ROM
 	clr	romset
 * detect 32k/64k
-	lda	#$80
-	leax	ram64k,pcr
+* some hw/emulators mirror 32KiB banks
+* some hw just return $ff for upper 32KiB
+* also check for $00 return.
+	lda	#$ff
+	leax	maxpag,pcr
 	sta	$8000,x
+	tst	maxpag,pcr
+	bne	det32k
+	leax	$8000,x
+	clr	,x
+	tst	,x
+	bne	det32k
+	lda	#$ff
+	sta	,x
+	lda	,x
+	cmpa	#$ff
+	bne	det32k
+	lda	#$ff
+	sta	maxpag,pcr
+	bra	logclr
+det32k	lda	#$80
+	sta	maxpag,pcr
 * clear error log
-	clra
+logclr	clra
 	ldb	#$60
 	leax	errlog,pcr
-logclr	sta	,x+
+logcl1	sta	,x+
 	decb
-	bne	logclr
+	bne	logcl1
 * jump to the low ram check
 	jmp	phigh
 * copy ourselves to page 0
@@ -54,7 +73,7 @@ plow	clr	f0set+0
 * from $1000-$8000 for 32k
 	lda	#$10
 loop1	bsr	chk
-	cmpa	ram64k,pcr
+	cmpa	maxpag,pcr
 	bne	loop1
 	inc	cycles,pcr
 * copy ourselves back to $ORG
@@ -212,7 +231,7 @@ prtscr	lbsr	cls
 	leax	strmem,pcr
 	bsr	prtstr
 	ldy	#$69
-	lda	ram64k,pcr
+	lda	maxpag,pcr
 	bita	#1
 	bne	prtsc1
 	leax	str32k,pcr
@@ -346,7 +365,7 @@ prterc	fcb	0
 
 * vars
 vidram	fdb	0
-ram64k	fcb	$ff
+maxpag	fcb	0
 cycles	fcb	0
 errors	fcb	0
 errbit	fcb	0
@@ -375,7 +394,7 @@ patn	fcb	$00
 	fcb	$01	* end of patns
 
 * strings
-strttl	fcc	"RAMCHK64 20230101"
+strttl	fcc	"RAMCHK64 20230106"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
