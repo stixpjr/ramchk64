@@ -1,13 +1,13 @@
-* ramchk64 20230106
+* ramchk64 20230910
 * stix@stix.id.au
 * - give ourselves 4KiB for growth.
-* - low copy at $0000, high copy at $7000
+* - low copy at $0000, high copy at $1000
 * -- $0000 code
 * -- $0e00 stack
 * -- $0e00 video RAM
 * -- $1000 end
 
-	org	$7000
+	org	$1000
 zb	jmp	start
 	fdb	ze-zb
 * disable interrupts
@@ -20,22 +20,35 @@ start	orcc	#$50
 * also check for $00 return.
 	lda	#$ff
 	leax	maxpag,pcr
-	sta	$8000,x
+	leax	$8000,x
+	sta	,x
 	tst	maxpag,pcr
 	bne	det32k
-	leax	$8000,x
 	clr	,x
 	tst	,x
 	bne	det32k
-	lda	#$ff
 	sta	,x
-	lda	,x
-	cmpa	#$ff
+	cmpa	,x
 	bne	det32k
-	lda	#$ff
 	sta	maxpag,pcr
 	bra	logclr
-det32k	lda	#$80
+* now check 16k/32k
+det32k	clr	maxpag,pcr
+	leax	maxpag,pcr
+	leax	$4000,x
+	sta	,x
+	tst	maxpag,pcr
+	bne	det16k
+	clr	,x
+	tst	,x
+	bne	det16k
+	sta	,x
+	cmpa	,x
+	bne	det16k
+	lda	#$80
+	sta	maxpag,pcr
+	bra	logclr
+det16k	lda	#$40
 	sta	maxpag,pcr
 * clear error log
 logclr	clra
@@ -71,6 +84,7 @@ plow	clr	f0set+0
 * check blocks:
 * from $1000-$fe00 for 64k
 * from $1000-$8000 for 32k
+* from $1000-$4000 for 16k
 	lda	#$10
 loop1	bsr	chk
 	cmpa	maxpag,pcr
@@ -85,18 +99,18 @@ copy2	ldd	,x++
 	bls	copy2
 * jump into copy
 	jmp	phigh
-* move video RAM to page $3f, @$7e00
+* move video RAM to page $3f, @$1e00
 phigh	clr	f0set+0
 	clr	f0set+2
 	clr	f0set+4
 	clr	f0set+6
-	clr	f0set+8
-	clr	f0set+10
+	clr	f0clr+8
+	clr	f0clr+10
 	clr	f0clr+12
-	ldd	#$7e00
+	ldd	#$1e00
 	std	vidram,pcr
 * set up stack
-	lds	#$7e00
+	lds	#$1e00
 	lbsr	prtscr
 * check blocks from $0000-$0f00
 	clra
@@ -232,11 +246,15 @@ prtscr	lbsr	cls
 	bsr	prtstr
 	ldy	#$69
 	lda	maxpag,pcr
-	bita	#1
-	bne	prtsc1
-	leax	str32k,pcr
+	cmpa	#$ff
+	beq	prtsc6
+	cmpa	#$80
+	beq	prtsc3
+prtsc1	leax	str16k,pcr
 	bra	prtsc2
-prtsc1	leax	str64k,pcr
+prtsc3	leax	str32k,pcr
+	bra	prtsc2
+prtsc6	leax	str64k,pcr
 prtsc2	bsr	prtstr
 	ldy	#$80
 	leax	strpg,pcr
@@ -394,7 +412,7 @@ patn	fcb	$00
 	fcb	$01	* end of patns
 
 * strings
-strttl	fcc	"RAMCHK64 20230106"
+strttl	fcc	"RAMCHK64 20230910"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
@@ -409,6 +427,8 @@ strcyc	fcc	"CYCLES:"
 strerr	fcc	"ERRORS:"
 	fcb	0
 strbit	fcc	"ERRBITS:"
+	fcb	0
+str16k	fcc	"16K"
 	fcb	0
 str32k	fcc	"32K"
 	fcb	0
