@@ -99,7 +99,7 @@ copy2	ldd	,x++
 	bls	copy2
 * jump into copy
 	jmp	phigh
-* move video RAM to page $3f, @$1e00
+* move video RAM to page $f, @$1e00
 phigh	clr	f0set+0
 	clr	f0set+2
 	clr	f0set+4
