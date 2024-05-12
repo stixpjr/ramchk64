@@ -1,4 +1,4 @@
-* ramchk64 20230910
+* ramchk64 20240512
 * stix@stix.id.au
 * - give ourselves 4KiB for growth.
 * - low copy at $0000, high copy at $1000
@@ -140,7 +140,16 @@ chk1	ldb	,u+
 	bsr	chkblk
 	bra	chk1
 chk2	inca
+* poll for the BREAK key
+	ldb	#$fb
+	stb	pia0+2
+	ldb	pia0
+	bitb	#$40
+	beq	basic
 	rts
+basic	clr	$71
+	clr	romclr
+	jmp	[reset]
 
 * chkblk
 * inputs:
@@ -412,7 +421,7 @@ patn	fcb	$00
 	fcb	$01	* end of patns
 
 * strings
-strttl	fcc	"RAMCHK64 20230910"
+strttl	fcc	"RAMCHK64 20240512"
 	fcb	0
 straut	fcc	"BY PAUL RIPKE STIX@STIX.ID.AU"
 	fcb	0
@@ -436,10 +445,12 @@ str64k	fcc	"64K"
 	fcb	0
 
 * equates
+pia0	equ	$ff00
 romclr	equ	$ffde
 romset	equ	$ffdf
 f0clr	equ	$ffc6
 f0set	equ	$ffc7
+reset	equ	$fffe
 
 ze	equ	*
 	end	zb
